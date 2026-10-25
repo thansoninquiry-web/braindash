@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
+import { formatCapturedStamp } from "../src/clock.js";
 import { RecallStamp } from "../src/components/DailyRecall.js";
 import { SearchHitRow } from "../src/components/SearchBar.js";
 import type { SearchHit } from "../src/types.js";
@@ -67,7 +68,14 @@ describe("SearchHitRow — captured zone", () => {
 
   it("omits the zone when the note recorded none", () => {
     const markup = row({ capturedZone: null });
-    assert.ok(markup.includes("Oct 19, 2026 · 4:38 AM GMT+9"));
+    // With no recorded zone the wall clock is read in this machine's zone, so the
+    // expected text comes from the same formatter rather than from a fixed string:
+    // asserting Tokyo's conversion here passed on a New York laptop and failed on
+    // the UTC CI runner. What this case claims is that the stamp is still shown and
+    // that no zone is named.
+    const expected = formatCapturedStamp("2026-10-18 3:38 PM", clock);
+    assert.ok(expected, "the stamp formats");
+    assert.ok(markup.includes(expected), `the stamp is still shown (${expected})`);
     assert.equal(markup.includes("hit-zone"), false);
   });
 

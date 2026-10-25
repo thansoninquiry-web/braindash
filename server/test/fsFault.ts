@@ -13,7 +13,7 @@
  * reached proves nothing. Every stub is restored in a `finally`, and the test
  * runner gives each file its own process, so nothing leaks between suites.
  */
-import { promises as fs } from "node:fs";
+import { promises as fs, realpathSync } from "node:fs";
 import path from "node:path";
 
 export type Fault =
@@ -30,7 +30,26 @@ const shared = fs as unknown as {
   stat: typeof fs.stat;
 };
 
-const faultKey = (fault: Fault): string => `${fault.kind}:${path.resolve(fault.path)}`;
+/**
+ * One spelling per file. The reader resolves what it was given through
+ * `fs.realpath` before reading, and on Windows that name can differ from the one
+ * a test built: the temp directory's 8.3 form (`RUNNER~1`) expands, and the drive
+ * letter is normalised. Comparing canonical names keeps a declared fault attached
+ * to the file it was meant for on every OS — a CI-only miss here made the
+ * defensive suite pass locally and fail on the Windows runner.
+ */
+function canonical(file: string): string {
+  const resolved = path.resolve(file);
+  try {
+    return realpathSync.native(resolved);
+  } catch {
+    // A path that genuinely is not there keeps its lexical spelling; the reader
+    // resolves the same string itself, so the fault still matches.
+    return resolved;
+  }
+}
+
+const faultKey = (fault: Fault): string => `${fault.kind}:${canonical(fault.path)}`;
 
 function fsError(code: string, file: string): NodeJS.ErrnoException {
   const error = new Error(`${code}: cannot open '${file}'`) as NodeJS.ErrnoException;
@@ -41,7 +60,7 @@ function fsError(code: string, file: string): NodeJS.ErrnoException {
 
 /** The path a call is about, or null when it passed a handle rather than a path. */
 function targetOf(value: unknown): string | null {
-  return typeof value === "string" ? path.resolve(value) : null;
+  return typeof value === "string" ? canonical(value) : null;
 }
 
 /**
@@ -49,10 +68,10 @@ function targetOf(value: unknown): string | null {
  * Throws (after restoring) if any declared fault was never triggered.
  */
 export async function withFsFaults<T>(faults: Fault[], body: () => Promise<T>): Promise<T> {
-  const missing = new Set(faults.filter((fault) => fault.kind === "missing").map((fault) => path.resolve(fault.path)));
-  const denied = new Set(faults.filter((fault) => fault.kind === "denied").map((fault) => path.resolve(fault.path)));
+  const missing = new Set(faults.filter((fault) => fault.kind === "missing").map((fault) => canonical(fault.path)));
+  const denied = new Set(faults.filter((fault) => fault.kind === "denied").map((fault) => canonical(fault.path)));
   const notFiles = new Set(
-    faults.filter((fault) => fault.kind === "not-a-file").map((fault) => path.resolve(fault.path)),
+    faults.filter((fault) => fault.kind === "not-a-file").map((fault) => canonical(fault.path)),
   );
   const fired = new Set<string>();
   const original = { readFile: shared.readFile, stat: shared.stat };
