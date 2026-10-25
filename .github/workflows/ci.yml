@@ -1,0 +1,307 @@
+name: CI
+
+# Every push to every branch and every pull request, plus a weekly sweep so a
+# registry that moved (or a lockfile that went stale) cannot sit unnoticed until
+# the next push. The dashboard has no deploy step, so this is the whole gate:
+# the typecheck/test/build commands the README tells a person to run on Ubuntu
+# and Windows, an LF working-tree check on both, a smoke run of the compiled
+# server on both platforms, a measured frame budget for the animated core, and
+# the drift report. The build happens
+# once, in `check`; `smoke` and `perf` run that same artifact, each platform
+# smoking the build its own leg produced. The install happens once per lockfile
+# too — the Linux jobs share one dependency cache entry.
+on:
+  push:
+  pull_request:
+  # Monday 06:00 UTC (Sunday 02:00 in New York), before the working week. The
+  # schedule only fires on the default branch, which is what a drift report wants.
+  schedule:
+    - cron: "0 6 * * 1"
+  # The drift job fetches registry metadata, so it is worth being able to ask for
+  # it by hand without pushing a commit.
+  workflow_dispatch:
+
+# A newer commit on the same ref makes an in-flight run pointless: stop paying
+# for the old one instead of queueing behind it.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The gate only reads, and fork pull requests get the same read-only token as a
+# push does. The weekly `drift` job widens this for its own steps to `issues:
+# write`, because it maintains a single drift issue; no file is ever written.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: typecheck · test · build (${{ matrix.os }})
+    # The project is developed on Windows, so the same gate runs there: CRLF
+    # working trees, backslash paths and the symlink fallback are only real on
+    # that runner. fail-fast is off so one platform's failure still shows the
+    # other's result.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # A cold install plus the suites takes well under two minutes; this only
+    # exists so a hung step fails instead of holding a runner for an hour.
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        id: node
+        uses: actions/setup-node@v4
+        with:
+          # The version the dashboard is developed on. package.json asks for
+          # >=20.19; pinning a known-good major keeps CI reproducible.
+          node-version: 24
+          # Warm the npm cache from package-lock.json between runs.
+          cache: npm
+
+      # `.gitattributes` promises LF in every checkout. This reads the bytes Git
+      # actually wrote instead of the attribute file: on the Windows runner
+      # `core.autocrlf=true` is what would produce CRLF if the rule ever stopped
+      # applying, and only the working tree can show that. It needs no install,
+      # so it runs before the cache and fails fastest on the platform that matters.
+      - name: Working tree line endings
+        run: npm run check:eol
+
+      # Before the cache is filled: does package.json still describe the tree,
+      # and do the locked tarballs still resolve? This is the earliest possible
+      # failure and needs no network beyond the registry metadata.
+      - name: Lockfile matches package.json
+        run: npm run check:lockfile
+
+      # The installed tree is the expensive half of an install (~100 MB of
+      # extraction, repeated by `smoke` and `perf` for the same lockfile). Cache
+      # the workspaces' `node_modules` under the lockfile hash and the resolved
+      # Node version, so the three Linux jobs share one install instead of each
+      # rebuilding it. Linux only: on Windows npm links workspaces with
+      # junctions, and an archive round-trip is not worth risking that leg's
+      # install fidelity for a few seconds.
+      - name: Restore installed dependencies
+        id: modules
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            server/node_modules
+            web/node_modules
+          key: node-modules-v1-${{ runner.os }}-node-${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}
+
+      # `ci` (not `install`): fails on a lockfile that disagrees with
+      # package.json instead of quietly rewriting it. Only a miss installs; a
+      # hit is the tree this key was written from, and `check:lockfile` above
+      # has already refused a lockfile that does not describe package.json.
+      - name: Install dependencies
+        if: steps.modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # The job summary should say what a green run proved without opening the
+      # logs: the totals the suites reported and the size of both builds. The
+      # test step saved its totals to `.ci/` for this one to read.
+      - name: Summarize tests and build
+        run: npm run ci:summary
+
+      # The compiled output is both the smoke job's input and the thing a person
+      # downloads when a green run needs inspecting, so every leg publishes it,
+      # and `smoke` downloads the matching `built-app-<os>` so each platform
+      # boots the artifact its own leg produced. Two small artifacts are a fair
+      # price for "any green run is inspectable from its run page".
+      - name: Upload built server and dashboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-app-${{ matrix.os }}
+          path: |
+            server/dist
+            web/dist
+          if-no-files-found: error
+          # Long enough to inspect last week's run, short enough that artifacts
+          # do not pile up for a repository that builds on every push.
+          retention-days: 14
+          # A re-run of this job keeps the same run id, and v4 refuses to upload
+          # a second artifact with an existing name; replacing it keeps re-runs
+          # green instead of failing at the last step.
+          overwrite: true
+
+  smoke:
+    name: built server · scratch vault (${{ matrix.os }})
+    # A production-shaped run on the same commit, on both platforms. Keeping it
+    # separate from the check job makes a failure say whether the suites or the
+    # artifact broke — and it runs the artifact the check job actually produced,
+    # so it can never pass or fail on a second build that happened to differ.
+    # Each leg downloads its own OS's artifact: the Windows build is the only
+    # thing that proves the compiled entry boots with Windows paths, a Windows
+    # temp vault and `npm.cmd` behind `/api/deps`, which the Linux copy cannot.
+    # fail-fast is off so one platform's failure still shows the other's result.
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        id: node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # The artifact carries compiled output, not `node_modules`, but the tree
+      # itself is shared: `check` filled this cache for the same lockfile, so
+      # this job restores it instead of repeating the extraction. A miss (first
+      # run, evicted cache, lockfile bump, a branch whose key has never been
+      # saved) falls back to `npm ci`, which the lockfile makes identical to
+      # what `check` installed.
+      - name: Restore installed dependencies
+        id: modules
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            server/node_modules
+            web/node_modules
+          key: node-modules-v1-${{ runner.os }}-node-${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      # Restores `server/dist` and `web/dist` from the same platform's check
+      # leg; the paths come back relative to the workspace root, exactly where
+      # the built server looks for them. No build step follows on purpose.
+      - name: Download built server and dashboard
+        uses: actions/download-artifact@v4
+        with:
+          name: built-app-${{ matrix.os }}
+
+      # Creates a throwaway vault, starts server/dist on a free loopback port,
+      # and asserts real JSON/HTML responses (health, notes, note read, search,
+      # graph, recall, life, mode, 501/404 and the built dashboard).
+      - name: Boot built server and probe the API
+        run: npm run smoke:built
+
+  perf:
+    name: animated core · frame budget
+    # The one job that measures rather than asserts. It runs the same built
+    # dashboard the smoke job does, but in headless Chrome against a 160-note
+    # scratch vault (the cloud's node cap), and fails when the draw loop's own
+    # main-thread work per painted frame exceeds its budget. Kept on Ubuntu only:
+    # the budget is calibrated for a headless software renderer, and a second
+    # platform would compare two different rasterisers rather than one product.
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        id: node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Same installed tree as `check` and `smoke`: this job measures the built
+      # dashboard, and reinstalling the dependencies would only delay it.
+      - name: Restore installed dependencies
+        id: modules
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            server/node_modules
+            web/node_modules
+          key: node-modules-v1-${{ runner.os }}-node-${{ steps.node.outputs.node-version }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      # Same artifact as `smoke`: no rebuild, so the numbers describe the bytes
+      # the gate produced.
+      - name: Download built server and dashboard
+        uses: actions/download-artifact@v4
+        with:
+          name: built-app-ubuntu-latest
+
+      # The runner image ships Chrome; the check fails with a clear message if
+      # it is ever removed, instead of silently skipping the measurement.
+      - name: Chrome version
+        run: google-chrome --version
+
+      # Boots server/dist on a loopback port, forces cloud motion on, samples
+      # Chrome's own script/style/layout counters for four seconds, and fails on
+      # an over-budget frame or a loop that stopped painting. The frame numbers
+      # are printed in the log.
+      - name: Measure the animated core
+        run: npm run perf:core
+
+  drift:
+    name: dependency drift
+    # Only on the calendar and on demand: a push already runs the lockfile
+    # check inside `check`, and fetching the whole registry on every commit is
+    # noise for a repository that changes slowly.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Scoped to this job and to issues only: reading the open list, opening,
+    # editing and closing the one drift issue, and creating its label. The
+    # built-in token is used, so no personal access token or extra secret
+    # exists to leak. Fork pull requests never reach this job.
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          # Deliberately no npm cache: the point is to ask the registry, and a
+          # restored cache could hide a package that vanished or was unpublished.
+
+      - name: Lockfile still resolves in the registry
+        run: npm run check:lockfile
+
+      # Fails only on in-range drift (the lockfile is behind a range
+      # package.json already allows); newer majors are printed and written to
+      # the job summary, because bumping them is a human decision. The classified
+      # report is also left in `.ci/deps.json` for the next step.
+      - name: Report dependency drift
+        run: npm run check:deps
+
+      # The check exits 1 in exactly the case that needs an issue, so this runs
+      # with `always()` rather than only after success. The script reads the
+      # report: stale entries open or rewrite the single issue, a clean lockfile
+      # comments once and closes it. When npm failed there is no report and the
+      # issue is deliberately left alone instead of being closed on no evidence.
+      - name: Open, update or close the drift issue
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run drift:issue

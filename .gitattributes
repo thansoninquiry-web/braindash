@@ -1,0 +1,58 @@
+# Line endings and diffs are decided here, not by each machine's core.autocrlf.
+#
+# The dashboard is developed on Windows and gated on Windows and Linux runners in
+# CI. Left to the local setting, the same commit checks out with CRLF on one
+# machine and LF on another, which shows up as whole-file diffs, hides real
+# changes, and makes "works on my machine" a line-ending question. `eol=lf` puts
+# LF in the repository *and* in every working tree, on every platform.
+#
+# Every text file is normalized; anything matched as binary by content sniffing
+# is still skipped, and the types below make that explicit where it matters.
+* text=auto eol=lf
+
+# Source, config and prose: always LF. Listed rather than left to sniffing so a
+# file with an unusual first line cannot be mistaken for binary.
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mts text eol=lf
+*.cts text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.svg text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.example text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# The lockfile is text like any other; it is called out because a stray CRLF
+# there is easy to miss and breaks `npm ci --dry-run` comparisons.
+package-lock.json text eol=lf
+
+# Windows-only launchers would need CRLF to run, so they opt out of the default.
+# None exist today; the rule is here so adding one does not need this file edited
+# in the same commit.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Never converted, never diffed as text: images, media and fonts.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.mp4 binary
+*.webm binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary

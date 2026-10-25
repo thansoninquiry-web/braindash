@@ -1,0 +1,37 @@
+{
+  "name": "braindash",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Local command-center dashboard over an Obsidian vault (read-only)",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c yellow,cyan \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "dev:https": "concurrently -k -n server,web -c yellow,cyan \"npm:dev:server\" \"npm run dev:https -w web\"",
+    "build": "npm run build -w server && npm run build -w web",
+    "start": "npm run start -w server",
+    "start:built": "npm run start:built -w server",
+    "smoke:built": "node scripts/smoke-built-server.mjs",
+    "perf:core": "node scripts/perf-core.mjs",
+    "check:lockfile": "npm ci --dry-run --no-audit --no-fund",
+    "check:eol": "node scripts/check-eol.mjs",
+    "check:deps": "node scripts/check-deps.mjs",
+    "drift:issue": "node scripts/drift-issue.mjs",
+    "ci:summary": "node scripts/ci-summary.mjs",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "test": "npm run test -w server && npm run test -w web",
+    "test:coverage": "npm run test:coverage -w server && npm run test:coverage -w web",
+    "mode": "node scripts/mode.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

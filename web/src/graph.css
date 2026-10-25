@@ -1,0 +1,503 @@
+/* Full-screen graph ----------------------------------------------------- */
+
+.fg-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  overflow: hidden;
+  background: rgba(4, 5, 7, 0.985);
+  backdrop-filter: blur(8px);
+  animation: fg-in 160ms ease-out;
+}
+
+@keyframes fg-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fg-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.fg-head {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.fg-heading {
+  min-width: 0;
+}
+
+.fg-kicker {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.fg-title {
+  margin: 3px 0 0;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.fg-meta {
+  margin: 3px 0 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.fg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0 0 0 auto;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fg-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fg-swatch {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 7px currentColor;
+}
+
+.fg-legend-count {
+  color: var(--muted-dim);
+}
+
+.fg-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Absolute, so an SVG aspect ratio can never widen the panel past the viewport
+   and make panning lag the pointer. */
+.fg-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+  outline: none;
+}
+
+.fg-canvas.is-dragging {
+  cursor: grabbing;
+}
+
+.fg-canvas:focus-visible {
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.35);
+}
+
+.fg-bg {
+  fill: transparent;
+}
+
+/* Edges: wikilinks solid, shared tags dashed; non-scaling so zoom keeps them crisp. */
+.fg-edge {
+  stroke-linecap: round;
+  stroke-width: 0.9;
+}
+
+.fg-edge.is-wikilink {
+  stroke: var(--accent-dim);
+  opacity: 0.5;
+}
+
+.fg-edge.is-tag {
+  stroke: var(--node-unset);
+  stroke-dasharray: 3 4;
+  opacity: 0.45;
+}
+
+.fg-edge.is-focused {
+  stroke: var(--accent-bright);
+  stroke-width: 1.7;
+  opacity: 1;
+}
+
+/* A focused or hovered shared-tag edge crawls its own dashes, so it reads as a
+   different kind of link from the solid wikilink beside it. Only the selected
+   edge moves; the field stays still. */
+.fg-panel.is-animated .fg-edge.is-tag.is-focused,
+.fg-panel.is-animated .fg-edge.is-tag.is-lit {
+  animation: fg-dash 900ms linear infinite;
+}
+
+@keyframes fg-dash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+/* Incident edges while a note is hovered: brighter than the field, quieter
+   than a single focused edge. */
+.fg-edge.is-lit {
+  stroke: var(--accent-bright);
+  stroke-width: 1.2;
+  opacity: 0.8;
+}
+
+.fg-edge.is-lit.is-tag {
+  stroke: var(--accent-bright);
+}
+
+.fg-edge.is-dim {
+  opacity: 0.1;
+}
+
+.fg-edge-hit {
+  stroke: transparent;
+  stroke-width: 12;
+  pointer-events: stroke;
+  cursor: crosshair;
+  outline: none;
+}
+
+.fg-edge-hit:focus-visible {
+  stroke: rgb(var(--accent-rgb) / 0.22);
+}
+
+.fg-node {
+  cursor: pointer;
+  outline: none;
+  transition: opacity 140ms ease;
+}
+
+.fg-node-dot {
+  opacity: 0.92;
+  transition: opacity 140ms ease;
+}
+
+/* Each halo breathes on its own delay (set inline from the node index), so the
+   full graph pulses like the core instead of blinking in lockstep. Transform
+   and opacity only: the geometry never moves, so labels and hit targets stay
+   put. Pointing at a node speeds its pulse rather than freezing it. */
+.fg-node-halo {
+  opacity: 0.16;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* The panel's `is-animated` class is the app's own motion setting, not the OS
+   one: an explicit On keeps the graph alive even when the OS asks for less,
+   and Off stills it even when the OS allows motion. The reduced-motion media
+   query below only wins by default because these selectors are more specific. */
+.fg-panel.is-animated .fg-node-halo {
+  animation: fg-node-breathe 5.6s ease-in-out infinite;
+}
+
+/* More specific than the panel's animation shorthand, so pointing at a node
+   still speeds its breath instead of reverting to the idle duration. */
+.fg-panel.is-animated .fg-node:hover .fg-node-halo,
+.fg-panel.is-animated .fg-node.is-focused .fg-node-halo {
+  animation-duration: 1.8s;
+}
+
+@keyframes fg-node-breathe {
+  0%,
+  100% {
+    opacity: 0.14;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.35);
+  }
+}
+
+/* The expanding wave: one ring leaves the middle, and each note answers it
+   with a small ring when the front arrives. Delays are computed from distance
+   in `graphPulse.ts`, so the graph pulses as a field rather than a metronome. */
+.fg-wave {
+  fill: none;
+  stroke: var(--accent-bright);
+  stroke-width: 1.4;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.fg-panel.is-animated .fg-wave {
+  animation: fg-wave 4.6s linear infinite;
+}
+
+@keyframes fg-wave {
+  0% {
+    opacity: 0.32;
+    transform: scale(0.02);
+  }
+  55% {
+    opacity: 0.16;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.fg-node-wave {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.fg-panel.is-animated .fg-node-wave {
+  animation: fg-node-wave 4.6s ease-out infinite;
+}
+
+/* The crest lasts about a third of the cycle: long enough to be seen as a ring
+   opening around the note, short enough that the graph never looks like it is
+   flashing all at once. Scale and opacity only, so hit targets never move. */
+@keyframes fg-node-wave {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  6% {
+    opacity: 0.7;
+  }
+  34% {
+    opacity: 0;
+    transform: scale(2.7);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.7);
+  }
+}
+
+/* The dot itself lifts a little as the crest arrives, so the wave changes the
+   note rather than just drawing a circle next to it. The inline delay is the
+   same one the ring uses. */
+.fg-panel.is-animated .fg-node-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: fg-node-lift 4.6s ease-out infinite;
+}
+
+@keyframes fg-node-lift {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  7% {
+    transform: scale(1.4);
+  }
+  20% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fg-node-halo,
+  .fg-node-wave,
+  .fg-node-dot,
+  .fg-wave {
+    animation: none;
+  }
+
+  .fg-node-wave,
+  .fg-wave {
+    opacity: 0;
+  }
+}
+
+.fg-node:hover .fg-node-dot,
+.fg-node.is-focused .fg-node-dot {
+  opacity: 1;
+}
+
+.fg-node:hover .fg-node-halo,
+.fg-node.is-focused .fg-node-halo {
+  opacity: 0.32;
+}
+
+.fg-node.is-dim {
+  opacity: 0.22;
+}
+
+.fg-node:focus-visible .fg-node-dot {
+  stroke: var(--accent-bright);
+  stroke-width: 1.5;
+}
+
+.fg-node-label {
+  fill: var(--text);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 2.5px;
+  pointer-events: none;
+}
+
+.fg-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.fg-focus {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  max-width: min(640px, calc(100% - 220px));
+  margin: 0;
+  padding: 7px 14px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.35);
+  border-radius: 999px;
+  background: rgba(10, 13, 16, 0.92);
+  box-shadow: var(--glow-soft);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--accent-bright);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fg-controls {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(10, 13, 16, 0.9);
+}
+
+.fg-controls button {
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.fg-controls button:hover {
+  color: var(--accent-bright);
+  background: rgb(var(--accent-rgb) / 0.08);
+}
+
+.fg-controls button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.fg-zoom {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted-dim);
+}
+
+.fg-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.fg-foot-mono {
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .fg-head {
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+
+  .fg-legend {
+    order: 3;
+    margin-left: 0;
+  }
+
+  .fg-foot {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .fg-focus {
+    max-width: calc(100% - 120px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fg-scrim {
+    animation: none;
+  }
+
+  .fg-node,
+  .fg-node-dot,
+  .fg-node-halo {
+    transition: none;
+  }
+}

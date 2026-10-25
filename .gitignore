@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+.freebuff/
+.ci/
+screenshots/
+
+# Scratch vaults, configs and screenshots written by local verification runs.
+# No trailing slash: it matches the file form (`web/.tmp-vite-verify.config.ts`)
+# as well as the folder form (`.tmp-polish-vault/`).
+.tmp-*
+
+# A vault must live outside this checkout (VAULT_PATH points at it). These rules
+# are the backstop for a vault copied or pointed in by mistake: they are ignored
+# even when a broad `git add -A` runs, so note bodies never reach the remote.
+.vault/
+.obsidian/
+.trash/
+notes/
+inbox/

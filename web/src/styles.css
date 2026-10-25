@@ -1,0 +1,5269 @@
+:root {
+  /* Near-black HUD canvas with white type, per docs/reference/jarvis.png. */
+  --bg: #040507;
+  --bg-soft: #07090b;
+  --panel: #0a0d10;
+  --panel-raised: #101418;
+  --line: #1d2226;
+  --line-soft: #131719;
+  /* Orange is the default palette; themes.ts overwrites all of these per accent. */
+  --accent: #ff8a3d;
+  --accent-bright: #ffb877;
+  --accent-dim: #b6682c;
+  --accent-rgb: 255 138 61;
+  /* Mirrors the Orange palette in themes.ts; the picked theme overwrites all of
+     these on <html> before first paint. */
+  --node-career: #ff8a3d;
+  --node-life: #c2703a;
+  --node-ideas: #ffb25e;
+  --node-unset: #714223;
+  /* Pale complement of the accent: the spark field's own layer, not a dim node. */
+  --node-dust: #a1c7dc;
+  --text: #eef1ea;
+  /* The star disk is neutral white on purpose: the accent tints the gas around
+     it, so the galaxy reads as light in a themed room instead of a gold sticker. */
+  --star: #e9eef8;
+  --muted: #8b9188;
+  --muted-dim: #5c6259;
+  --danger: #d2705c;
+  --mono: ui-monospace, "JetBrains Mono", "IBM Plex Mono", "Cascadia Code", Menlo, Consolas,
+    monospace;
+  --sans: ui-sans-serif, "Inter", "Segoe UI", system-ui, sans-serif;
+  --radius: 10px;
+  --glow-soft: 0 0 24px rgb(var(--accent-rgb) / 0.09);
+  --glow-line: 0 0 0 1px rgb(var(--accent-rgb) / 0.2), 0 0 18px rgb(var(--accent-rgb) / 0.09);
+  --track: 0.2em;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Deep space, not a grid: a wash of the accent behind the core, a cooler haze
+   in the far corner, and a vignette that lets the starfield fall away at the
+   edges. The stars themselves are the Starfield component. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(52% 40% at 50% 40%, rgb(var(--accent-rgb) / 0.11), transparent 72%),
+    radial-gradient(46% 38% at 84% 8%, rgb(150 190 220 / 0.05), transparent 74%);
+  z-index: 0;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 42%, transparent 38%, rgb(2 3 5 / 0.55) 82%, #040507 100%);
+  z-index: 0;
+}
+
+/* ---------- starfield ---------- */
+
+.starfield {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.starfield svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.starfield circle {
+  fill: #e6eef2;
+}
+
+/* A minority breathe. The base opacity stays per-star through --star-o. */
+.starfield circle.is-twinkle {
+  animation: star-twinkle 8s ease-in-out infinite;
+}
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: var(--star-o, 0.5);
+  }
+  50% {
+    opacity: 0.06;
+  }
+}
+
+/* Screen-reader-only text: the badge shows two words, but says a sentence. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mono-label,
+.rail-title,
+.rail-tag,
+.metric-label,
+.metric-delta,
+.statusbar,
+.clock,
+.footer,
+.action,
+.tile,
+.pill,
+.mode-pill,
+.brand-sub,
+.cloud-legend,
+.cloud-caption {
+  font-family: var(--mono);
+  font-variant-caps: all-small-caps;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 22px 12px;
+  gap: 18px;
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Segmented accent switch, centered like the reference's mode pills. */
+.mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 auto;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.mode-pill {
+  padding: 6px 14px;
+  font-size: 10px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.mode-pill:hover {
+  color: var(--text);
+}
+
+.mode-pill.is-active {
+  color: #05070a;
+  background: var(--accent-bright);
+  box-shadow: 0 0 18px rgb(var(--accent-rgb) / 0.28);
+}
+
+.mode-pill:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- working mode ---------- */
+
+/* The badge reads at a glance; opening it shows the full reason and the notice
+   switch. Switching the mode itself is still `npm run mode`, which writes the
+   switch log — this is a disclosure, not a second mode control. */
+.work-mode-shell {
+  display: inline-flex;
+  flex: none;
+}
+
+.work-mode {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  padding: 6px 11px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.015);
+  cursor: pointer;
+}
+
+.work-mode-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.work-mode-summary::-webkit-details-marker {
+  display: none;
+}
+
+.work-mode-summary:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+
+.work-mode[open] {
+  border-color: rgb(var(--accent-rgb) / 0.45);
+}
+
+.work-mode-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted-dim);
+}
+
+.work-mode-source {
+  color: var(--muted-dim);
+  font-size: 8.5px;
+}
+
+/* At work the dashboard acts alone, so the badge carries the accent. */
+.work-mode.is-work {
+  color: var(--text);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  background: rgb(var(--accent-rgb) / 0.06);
+}
+
+.work-mode.is-work .work-mode-dot {
+  background: var(--accent-bright);
+  box-shadow: 0 0 9px rgb(var(--accent-rgb) / 0.65);
+}
+
+.work-mode.is-home .work-mode-dot {
+  background: var(--muted);
+}
+
+.work-mode.is-unknown {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+/* The backlog count and chevron are part of the summary; the panel holds the
+   reason, the notice switch and the flips themselves. */
+.mode-history-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--accent-bright);
+  background: rgb(var(--accent-rgb) / 0.18);
+  border-radius: 999px;
+}
+
+.work-mode-chevron {
+  color: var(--muted-dim);
+  font-size: 9px;
+  line-height: 1;
+  transition: transform 140ms ease;
+}
+
+.work-mode[open] .work-mode-chevron {
+  transform: rotate(180deg);
+}
+
+.work-mode-panel {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 70;
+  width: min(340px, calc(100vw - 28px));
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--panel-raised), var(--bg-soft));
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5), 0 0 20px rgb(var(--accent-rgb) / 0.05);
+  font-family: var(--sans);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: normal;
+  text-align: left;
+}
+
+.work-mode-panel-title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.work-mode-panel-title strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* The panel's smallest labels still have to clear AA on its own dark pane:
+   --muted-dim lands near 3:1 at 8 px, so the provenance and timestamps use the
+   brighter muted grey (≈5.7:1) instead. */
+.work-mode-panel-source {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.work-mode-panel-reason {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+/* A shortcut for the Shown/Muted choice in Settings, in the place the person is
+   already looking when they open the badge. Checked means notices are shown, so
+   the knob is on when the feature is on. */
+.work-mode-mute {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 11px;
+  padding: 9px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.work-mode-mute-label {
+  color: var(--muted);
+}
+
+.work-mode-switch {
+  position: relative;
+  width: 28px;
+  height: 15px;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.work-mode-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.work-mode-mute[aria-checked="true"] .work-mode-switch {
+  border-color: rgb(var(--accent-rgb) / 0.5);
+  background: rgb(var(--accent-rgb) / 0.18);
+}
+
+.work-mode-mute[aria-checked="true"] .work-mode-switch-knob {
+  transform: translateX(13px);
+  background: var(--accent-bright);
+}
+
+.work-mode-mute-state {
+  min-width: 38px;
+  color: var(--muted);
+  font-size: 8px;
+  text-align: right;
+}
+
+.work-mode-mute[aria-checked="false"] .work-mode-mute-state {
+  color: var(--muted);
+}
+
+.work-mode-mute:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.work-mode-backlog {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.mode-history-title {
+  margin: 0 0 9px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mode-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mode-history-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mode-history-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.mode-history-row.is-work .mode-history-dot {
+  background: var(--accent-bright);
+  box-shadow: 0 0 8px rgb(var(--accent-rgb) / 0.55);
+}
+
+.mode-history-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.mode-history-mode {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.mode-history-source {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.mode-history-time {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.mode-history-detail {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.mode-history-clear {
+  margin-top: 10px;
+  padding: 3px 7px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mode-history-clear:hover {
+  color: var(--text);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+}
+
+.mode-history-clear:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 860px) {
+  .work-mode-source {
+    display: none;
+  }
+}
+
+/* On a phone the header wraps, so a panel anchored to the badge can run off the
+   left edge. Present it as a bottom sheet instead of guessing where the badge
+   landed. */
+@media (max-width: 620px) {
+  .work-mode-panel {
+    position: fixed;
+    inset: auto 14px 14px;
+    width: auto;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .work-mode-chevron,
+  .work-mode-switch-knob {
+    transition: none;
+  }
+}
+
+/* A mode flip gets a short overlay: the header badge updates silently, so this
+   is the moment that can actually be noticed without staring at the corner.
+   Anchored to the bottom, not the top: the header is where the theme switch and
+   the mode badge live, and a nine-second notice must not sit over a control. */
+.mode-notice {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  z-index: 65;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: min(480px, calc(100vw - 28px));
+  padding: 11px 12px;
+  transform: translateX(-50%);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--muted);
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--panel-raised), var(--bg-soft));
+  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.52), 0 0 22px rgb(var(--accent-rgb) / 0.06);
+  font-family: var(--mono);
+  animation: mode-notice-in 170ms ease-out;
+}
+
+.mode-notice.is-work {
+  border-left-color: var(--accent-bright);
+}
+
+.mode-notice.is-home {
+  border-left-color: var(--muted);
+}
+
+.mode-notice-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.mode-notice.is-work .mode-notice-dot {
+  background: var(--accent-bright);
+  box-shadow: 0 0 9px rgb(var(--accent-rgb) / 0.65);
+}
+
+.mode-notice-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.mode-notice-title {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mode-notice-title strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mode-notice-source {
+  margin-left: 8px;
+  color: var(--muted-dim);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+}
+
+.mode-notice-detail {
+  margin: 4px 0 0;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+/* Session-only escape hatch beside the dismiss cross: the notice asks for
+   attention, so the way to stop it must be as visible as the way to close it. */
+.mode-notice-mute {
+  flex: none;
+  align-self: flex-start;
+  height: 22px;
+  padding: 0 7px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.mode-notice-mute:hover {
+  color: var(--text);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+}
+
+.mode-notice-mute:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mode-notice-close {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted-dim);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mode-notice-close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mode-notice-close:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@keyframes mode-notice-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-notice {
+    animation: none;
+  }
+}
+
+/* Status strip under the header: dot-separated readouts, no chrome. */
+.statusbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin-top: -6px;
+  font-size: 9.5px;
+  color: var(--muted-dim);
+}
+
+.status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 42ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusbar-spacer {
+  flex: 1;
+}
+
+.status-stamp {
+  color: var(--muted);
+}
+
+/* Skipped symlinks are a caveat on the note count, not an alarm. The dotted
+   underline is the only hint that hovering names the paths. */
+.status-skipped {
+  color: var(--accent-dim);
+  text-decoration: underline dotted rgb(var(--accent-rgb) / 0.5);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.status-skipped:hover {
+  color: var(--accent-bright);
+}
+
+/* A note that was listed but could not be read is a gap in the index, not a
+   policy choice, so it borrows the failure colour instead of the accent. */
+.status-unreadable {
+  color: var(--danger);
+  text-decoration: underline dotted rgb(210 112 92 / 0.55);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.status-unreadable:hover {
+  color: var(--text);
+  text-decoration-color: var(--danger);
+}
+
+/* Vault paths keep their real casing; only the labels are uppercased. */
+.status-path {
+  text-transform: none;
+  font-variant-caps: normal;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 210px;
+}
+
+.brand-mark {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 6px;
+  position: relative;
+  box-shadow: var(--glow-line);
+  /* The mark is the dashboard's heartbeat: a slow glow, never a blink. */
+  animation: mark-breathe 5.6s ease-in-out infinite;
+}
+
+@keyframes mark-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgb(var(--accent-rgb) / 0.16), 0 0 12px rgb(var(--accent-rgb) / 0.06);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgb(var(--accent-rgb) / 0.32), 0 0 20px rgb(var(--accent-rgb) / 0.16);
+  }
+}
+
+.brand-mark::before,
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.brand-mark::before {
+  left: 5px;
+  right: 5px;
+  top: 8px;
+  height: 1px;
+  box-shadow: 0 4px 0 rgb(var(--accent-rgb) / 0.55), 0 8px 0 rgb(var(--accent-rgb) / 0.3);
+}
+
+.brand-mark::after {
+  top: 5px;
+  bottom: 5px;
+  left: 8px;
+  width: 1px;
+  box-shadow: 4px 0 0 rgb(var(--accent-rgb) / 0.45), 9px 0 0 rgb(var(--accent-rgb) / 0.25);
+}
+
+.brand-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-shadow: 0 0 22px rgb(var(--accent-rgb) / 0.28);
+  animation: brand-breathe 7s ease-in-out infinite;
+}
+
+@keyframes brand-breathe {
+  0%,
+  100% {
+    text-shadow: 0 0 22px rgb(var(--accent-rgb) / 0.28);
+  }
+  50% {
+    text-shadow: 0 0 30px rgb(var(--accent-rgb) / 0.46);
+  }
+}
+
+.brand-tag {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  color: var(--accent-dim);
+}
+
+.brand-sub {
+  margin: 2px 0 0;
+  font-size: 10px;
+  color: var(--muted-dim);
+}
+
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+
+.status-dot.is-on {
+  background: var(--accent);
+  box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.65);
+  animation: pulse 3.2s ease-in-out infinite;
+}
+
+.status-dot.is-busy {
+  background: var(--accent-dim);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.status-dot.is-off {
+  background: var(--danger);
+  box-shadow: 0 0 10px rgba(201, 106, 90, 0.5);
+}
+
+.clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex: none;
+}
+
+.clock-time {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  text-shadow: 0 0 22px rgb(var(--accent-rgb) / 0.3);
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 9.5px;
+  color: var(--muted-dim);
+}
+
+.clock-zone {
+  color: var(--accent-dim);
+}
+
+/* ---------- banner ---------- */
+
+.banner {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  background: var(--panel);
+}
+
+.banner-error {
+  border-color: rgba(201, 106, 90, 0.4);
+  box-shadow: 0 0 22px rgba(201, 106, 90, 0.08);
+}
+
+.banner-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--danger);
+}
+
+.banner p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.banner-hint {
+  color: var(--muted) !important;
+  font-size: 12px !important;
+}
+
+.banner code {
+  font-family: var(--mono);
+  color: var(--accent);
+  font-size: 11px;
+}
+
+/* ---------- layout ---------- */
+
+.grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 258px minmax(0, 1fr) 248px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rail-title {
+  margin: 0;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ---------- metric rows ---------- */
+
+.metric {
+  position: relative;
+  padding: 12px 0 14px;
+  border-top: 1px solid var(--line-soft);
+  transition: border-top-color 160ms ease;
+}
+
+/* A clipped wash crossing the row, delayed per card so one sweep travels down
+   the rail instead of four rows flashing together. The scan lives in its own
+   layer (not the card's overflow) so the figure's glow is never cut off. */
+.metric-scan {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.metric-scan::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* A soft wash plus a bright leading edge on the top hairline, so the sweep
+     is readable even against the near-black rail. Both travel with the layer. */
+  background:
+    linear-gradient(90deg, transparent 46%, rgb(var(--accent-rgb) / 0.55) 50%, transparent 54%)
+      0 0 / 100% 1px no-repeat,
+    linear-gradient(
+      100deg,
+      transparent 30%,
+      rgb(var(--accent-rgb) / 0.12) 46%,
+      rgb(var(--accent-rgb) / 0.2) 52%,
+      transparent 70%
+    );
+  opacity: 0;
+  transform: translateX(-120%);
+}
+
+.metric.is-animated .metric-scan::after {
+  animation: metric-scan 7.2s ease-in-out infinite;
+}
+
+.metric:nth-of-type(1) .metric-scan::after {
+  animation-delay: 0s;
+}
+
+.metric:nth-of-type(2) .metric-scan::after {
+  animation-delay: 0.34s;
+}
+
+.metric:nth-of-type(3) .metric-scan::after {
+  animation-delay: 0.68s;
+}
+
+.metric:nth-of-type(4) .metric-scan::after {
+  animation-delay: 1.02s;
+}
+
+@keyframes metric-scan {
+  0%,
+  55% {
+    opacity: 0;
+    transform: translateX(-120%);
+  }
+  62% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: translateX(120%);
+  }
+}
+
+/* A figure that really changed (the value keys the node) rises in with a soft
+   accent flash; a poll that changed nothing leaves the node mounted and still. */
+.metric.is-animated .metric-value {
+  animation: metric-tick 460ms ease-out;
+}
+
+@keyframes metric-tick {
+  from {
+    opacity: 0.35;
+    text-shadow: 0 0 34px rgb(var(--accent-rgb) / 0.55);
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.metric:first-of-type {
+  border-top-color: var(--line);
+}
+
+/* A row answers the pointer with its hairline and its figure, not a lift: the
+   rail is a column of numbers, and moving it would read as a layout glitch. */
+.metric:hover {
+  border-top-color: rgb(var(--accent-rgb) / 0.35);
+}
+
+.metric:hover .metric-value {
+  text-shadow: 0 0 30px rgb(var(--accent-rgb) / 0.38);
+}
+
+.metric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.metric-label {
+  font-size: 9.5px;
+  color: var(--muted);
+}
+
+.metric-delta {
+  padding: 1px 7px;
+  font-size: 9px;
+  color: var(--accent);
+  border: 1px solid rgb(var(--accent-rgb) / 0.3);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.metric-value {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 30px;
+  line-height: 1.05;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  text-shadow: 0 0 24px rgb(var(--accent-rgb) / 0.22);
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+  transition: text-shadow 160ms ease;
+}
+
+.metric-caption {
+  margin: 7px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.metric .sparkline {
+  display: block;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.sparkline-hit {
+  fill: transparent;
+}
+
+/* A hovered bucket lifts out of the line so the native date/count title has a
+   visible target rather than appearing over a blank strip. */
+.sparkline-hit:hover {
+  fill: rgb(var(--accent-rgb) / 0.09);
+}
+
+/* The line draws itself once when its data arrives, then stays still: the
+   shapes are small, so a redraw on every poll would read as a flicker rather
+   than a refresh. `pathLength="1"` makes one dash equal the whole line without
+   measuring it in JS. Gated by the app's motion setting rather than the OS one:
+   an explicit On is meant to animate the whole dashboard, and System still
+   resolves to `is-animated: false` when the OS asks for less. */
+.sparkline.is-animated .sparkline-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: spark-draw 900ms cubic-bezier(0.22, 0.8, 0.3, 1) forwards;
+}
+
+.sparkline.is-animated .sparkline-area {
+  opacity: 0;
+  animation: spark-area 620ms ease-out 220ms forwards;
+}
+
+/* The latest bucket keeps a soft heartbeat, the same cue as the core. */
+.sparkline.is-animated .sparkline-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spark-dot 2.6s ease-in-out infinite;
+}
+
+@keyframes spark-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes spark-area {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes spark-dot {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.7);
+  }
+}
+
+.sparkline-empty {
+  margin-top: 10px;
+  height: 1px;
+  background: var(--line);
+}
+
+.metric-footer {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Largest-note shortcut in the vault-size row. */
+.metric-link {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  max-width: 100%;
+  padding: 0;
+  font: inherit;
+  color: var(--muted);
+  text-align: left;
+  text-decoration: underline dotted rgb(var(--accent-rgb) / 0.45);
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.metric-link:hover,
+.metric-link:focus-visible {
+  color: var(--text);
+}
+
+.metric-link-size {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+}
+
+/* ---------- area meter ---------- */
+
+.meter {
+  padding: 13px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(165deg, var(--panel-raised), var(--panel) 65%);
+  box-shadow: var(--glow-soft);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.meter:hover {
+  border-color: rgb(var(--accent-rgb) / 0.35);
+  box-shadow: var(--glow-line);
+}
+
+.meter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.meter-value {
+  margin-top: 9px;
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.meter-unit {
+  margin-left: 8px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.meter-bar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  margin-top: 12px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.meter-seg {
+  display: block;
+  border-radius: 1px;
+}
+
+.meter-seg.area-career {
+  background: var(--node-career);
+}
+
+.meter-seg.area-life {
+  background: var(--node-life);
+}
+
+.meter-seg.area-ideas {
+  background: var(--node-ideas);
+}
+
+.meter-seg.area-unset {
+  background: var(--node-unset);
+}
+
+.meter-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted-dim);
+}
+
+/* ---------- dependency health ---------- */
+
+.dep-health {
+  padding: 13px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(165deg, var(--panel-raised), var(--panel) 65%);
+  box-shadow: var(--glow-soft);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dep-health:hover {
+  border-color: rgb(var(--accent-rgb) / 0.35);
+  box-shadow: var(--glow-line);
+}
+
+.dep-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dep-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.dep-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.dep-count {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The count is the alarm: warm when the lockfile is behind, dim when it is in
+   step, danger-red only when npm could not answer at all. */
+.dep-health[data-state="behind"] .dep-count {
+  color: var(--accent-bright);
+  text-shadow: 0 0 20px rgb(var(--accent-rgb) / 0.28);
+}
+
+.dep-health[data-state="clean"] .dep-count {
+  color: var(--muted);
+}
+
+.dep-health[data-state="unavailable"] .dep-count {
+  color: var(--danger);
+}
+
+.dep-unit {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dep-caption {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.dep-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dep-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.dep-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dep-versions {
+  flex: none;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.dep-more,
+.dep-note {
+  font-size: 10px;
+  color: var(--muted-dim);
+}
+
+.dep-note {
+  margin: 8px 0 0;
+}
+
+.dep-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.dep-stamp {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--muted-dim);
+}
+
+.dep-recheck {
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.dep-recheck:hover:not(:disabled),
+.dep-recheck:focus-visible:not(:disabled) {
+  color: var(--text);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+}
+
+.dep-recheck:disabled {
+  cursor: progress;
+  opacity: 0.5;
+}
+
+/* ---------- broken links ---------- */
+
+.link-health {
+  padding: 13px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(165deg, var(--panel-raised), var(--panel) 65%);
+  box-shadow: var(--glow-soft);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.link-health:hover {
+  border-color: rgb(var(--accent-rgb) / 0.35);
+  box-shadow: var(--glow-line);
+}
+
+.link-health-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.link-health-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.link-health-count {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Same alarm language as the dependency card: warm when links are broken,
+   dim when the vault is clean, danger-red only when the index could not be
+   read at all. */
+.link-health[data-state="broken"] .link-health-count {
+  color: var(--accent-bright);
+  text-shadow: 0 0 20px rgb(var(--accent-rgb) / 0.28);
+}
+
+.link-health[data-state="clean"] .link-health-count {
+  color: var(--muted);
+}
+
+.link-health[data-state="unavailable"] .link-health-count {
+  color: var(--danger);
+}
+
+.link-health-unit {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.link-health-caption {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.link-health-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link-health-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.link-health-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-health-note-count {
+  flex: none;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.link-health-more {
+  color: var(--muted-dim);
+}
+
+.link-health-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.link-health-stamp {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--muted-dim);
+}
+
+.link-health-open {
+  padding: 2px 8px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.link-health-open:hover:not(:disabled),
+.link-health-open:focus-visible:not(:disabled) {
+  color: var(--text);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+}
+
+.link-health-open:disabled {
+  cursor: progress;
+  opacity: 0.5;
+}
+
+/* The report itself: a centred, scrollable list of labels and the notes that
+   wrote them. Below the note reader's z-index so opening a note from a row
+   does not leave the report above the note. */
+.link-report-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(4, 4, 6, 0.72);
+  backdrop-filter: blur(4px);
+  animation: scrim-in 160ms ease-out;
+}
+
+.link-report-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100%);
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--panel-raised), var(--bg-soft) 75%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), var(--glow-soft);
+  animation: panel-in 200ms cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+
+.link-report-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.link-report-heading {
+  min-width: 0;
+}
+
+.link-report-kicker {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.link-report-title {
+  margin: 4px 0 0;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+}
+
+.link-report-meta {
+  margin: 5px 0 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.link-report-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 20px 18px;
+}
+
+.link-report-empty {
+  margin: 18px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.link-group {
+  padding-top: 15px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.link-group:first-of-type {
+  border-top: none;
+}
+
+.link-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.link-group-label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent-bright);
+  overflow-wrap: anywhere;
+}
+
+.link-group-count {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.link-group-targets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 7px 0 0;
+}
+
+.link-group-targets-label {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.link-target {
+  max-width: 100%;
+  padding: 1px 6px;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+}
+
+.link-group-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.link-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  width: 100%;
+  padding: 7px 9px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.link-note:hover,
+.link-note:focus-visible {
+  background: rgb(var(--accent-rgb) / 0.06);
+  border-color: rgb(var(--accent-rgb) / 0.28);
+}
+
+.link-note-title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-note-wrote {
+  max-width: 45%;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-note-path {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-report-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 20px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--muted-dim);
+  border-top: 1px solid var(--line-soft);
+}
+
+.link-report-mono {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .link-report-scrim {
+    padding: 10px;
+  }
+
+  .link-report-head,
+  .link-report-body,
+  .link-report-foot {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .link-note {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .link-note-wrote {
+    grid-column: 1;
+    max-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link-report-scrim,
+  .link-report-panel {
+    animation: none;
+  }
+}
+
+/* ---------- index trail ---------- */
+
+.trail {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trail-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  /* A zoned row adds one short line; keep it tucked under the title. */
+  row-gap: 2px;
+  width: 100%;
+  padding: 9px 0;
+  color: var(--text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  cursor: pointer;
+}
+
+.trail-row:hover .trail-title,
+.trail-row:focus-visible .trail-title {
+  color: var(--accent-bright);
+}
+
+.trail-row:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.trail-stamp {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--muted-dim);
+}
+
+.trail-title {
+  font-size: 12.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The conversion origin, visible in the row itself rather than only in the
+   hover title: a keyboard user tabbing through the trail sees it, and a screen
+   reader reads it as part of the row's name. Date-only captures and notes with
+   no recorded zone render no line, because nothing was converted. */
+.trail-zone {
+  grid-column: 2 / -1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trail-row:hover .trail-zone,
+.trail-row:focus-visible .trail-zone {
+  color: var(--accent-dim);
+}
+
+.trail-size {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--muted-dim);
+  white-space: nowrap;
+}
+
+.trail-row:hover .trail-size,
+.trail-row:focus-visible .trail-size {
+  color: var(--muted);
+}
+
+.trail-arrow {
+  font-size: 11px;
+  color: var(--accent-dim);
+}
+
+.trail-empty {
+  padding: 10px 0;
+  font-size: 11px;
+  color: var(--muted-dim);
+}
+
+/* ---------- rail headings ---------- */
+
+.rail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rail-tag {
+  font-size: 9px;
+  color: var(--muted-dim);
+}
+
+/* The vitals header's liveness cue: a small lamp that beats while the
+   dashboard is refreshing itself, and goes quiet when automatic refresh is
+   off. It is tied to the same motion setting as the rest of the dashboard. */
+.rail-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rail-live-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.75);
+  opacity: 0.6;
+}
+
+.rail-live.is-paused .rail-live-dot {
+  background: var(--muted-dim);
+  box-shadow: none;
+  opacity: 0.75;
+}
+
+.rail-live.is-animated:not(.is-paused) .rail-live-dot {
+  animation: rail-live-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes rail-live-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+
+.rail-head-sub {
+  margin-top: 8px;
+}
+
+/* ---------- cloud ---------- */
+
+.cloud {
+  /* Largest size the focus title may take; the slot and the fitting share it. */
+  --cloud-title-max: 34px;
+  /* Authored as lengths, not computed px: src/cloudTitleMetrics.ts resolves them
+     against each candidate size so the fit can measure the real tracking. */
+  --cloud-title-tracking: 0.3em;
+  --cloud-title-indent: 0.3em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0 0;
+  min-height: 0;
+}
+
+/* The cloud hangs in an empty hall rather than on a flat card: no border, no
+   frame, just a room that fades into the page at every edge. */
+.cloud-frame {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  overflow: hidden;
+}
+
+/* The camera sits at eye height in a long, empty room. One-point perspective,
+   drawn once in src/components/CloudVoid.tsx from web/src/cloudVoid.ts. */
+.cloud-void {
+  position: absolute;
+  /* 20px of bleed on every side: more than the drift travels (see
+     web/src/hallDrift.ts), so a translated edge still has room and never
+     uncovers the frame behind it. */
+  inset: -20px;
+  pointer-events: none;
+  /* Fed by NodeCloud's draw loop: a few pixels against the sphere's tilt. */
+  transform: translate3d(var(--hall-x, 0px), var(--hall-y, 0px), 0);
+  will-change: transform;
+}
+
+.cloud-void svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Fading the room out at the edges is what makes it read as open ended instead
+   of as a picture of a room. Drawn under the sphere, so nothing dims the notes. */
+.cloud-void::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 92% at 50% 52%, transparent 42%, rgb(4 5 7 / 0.5) 76%, var(--bg) 100%),
+    linear-gradient(180deg, rgb(4 5 7 / 0.8), transparent 16%, transparent 84%, rgb(4 5 7 / 0.9));
+}
+
+/* Roof and floor seams: the lines that carry the perspective. */
+.void-grid line {
+  stroke: #dfe8ec;
+  stroke-width: 0.8;
+  opacity: 0.11;
+}
+
+.void-wall-seams line {
+  stroke: #dfe8ec;
+  stroke-width: 0.8;
+  opacity: 0.05;
+}
+
+/* Strip lights on the ceiling, a soft glow rather than a fitting. The near
+   plates are dimmed inline; this is the base they scale from. The group's own
+   opacity comes from the time of day (web/src/hallLight.ts). */
+.void-lights polygon {
+  fill: #eef4f6;
+  filter: blur(5px);
+}
+
+.void-door {
+  fill: none;
+  stroke: rgb(238 244 246 / 0.18);
+  stroke-width: 1.5;
+}
+
+/* The room after dark: a black veil over every layer, its opacity fed by the
+   clock in src/components/CloudVoid.tsx. */
+.void-night {
+  fill: #02040a;
+  pointer-events: none;
+}
+
+.cloud-svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  cursor: grab;
+  /* Drag must rotate the sphere, not scroll the page, on touch screens. */
+  touch-action: none;
+}
+
+.cloud-svg circle {
+  cursor: crosshair;
+  transition: opacity 140ms ease, r 140ms ease;
+}
+
+/* The star disk is its own SVG layer, composited under the notes: its CSS
+   transform changes every frame, and nothing inside it ever does. */
+.cloud-stars {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cloud-stars circle {
+  fill: var(--star);
+  cursor: default;
+  transition: none;
+}
+
+/* The gas is a wash, not a shape: it must never show an edge. */
+.cloud-stars circle.is-haze {
+  fill: url(#star-haze);
+}
+
+/* Pointer focus (the click that opens a note) must not paint a ring: Chrome's
+   `outline: auto` default draws a bright box around the whole SVG. Keyboard
+   focus still gets an accent ring, which is the only place it is useful. */
+.cloud-svg:focus {
+  outline: none;
+}
+
+.cloud-svg:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cloud-svg.is-dragging,
+.cloud-svg.is-dragging circle.cloud-node {
+  cursor: grabbing;
+}
+
+.cloud-node.is-openable {
+  cursor: pointer;
+}
+
+/* Arrival ring for a note the scan just found. Its radius, stroke width and
+   opacity are written every frame, so it opts out of the circle transition the
+   way the scan pulse does; the colour is set inline from the note's area. */
+.cloud-flare {
+  fill: none;
+  pointer-events: none;
+  transition: none;
+  filter: blur(1.5px);
+}
+
+/* Invisible, generous pointer target for each note dot. */
+.cloud-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.cloud-hit.is-openable {
+  cursor: pointer;
+}
+
+/* Hover/focus feedback that does not depend on the animation loop, so it also
+   works when the OS asks for reduced motion and only one frame is painted. */
+.cloud-node.is-openable:hover,
+.cloud-node.is-openable:focus-visible {
+  opacity: 1;
+  stroke-width: 1.6;
+}
+
+.cloud-hint {
+  margin: 8px 0 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+  text-align: center;
+}
+
+.cloud-corners span {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: rgb(var(--accent-rgb) / 0.22);
+  border-style: solid;
+  border-width: 0;
+}
+
+.cloud-corners span:nth-child(1) {
+  top: 8px;
+  left: 8px;
+  border-top-width: 1px;
+  border-left-width: 1px;
+}
+
+.cloud-corners span:nth-child(2) {
+  top: 8px;
+  right: 8px;
+  border-top-width: 1px;
+  border-right-width: 1px;
+}
+
+.cloud-corners span:nth-child(3) {
+  bottom: 8px;
+  left: 8px;
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+}
+
+.cloud-corners span:nth-child(4) {
+  bottom: 8px;
+  right: 8px;
+  border-bottom-width: 1px;
+  border-right-width: 1px;
+}
+
+/* The brackets breathe out of phase, so the frame feels cast rather than
+   printed. Opacity only: the corners never move or resize. */
+.cloud-corners span {
+  animation: corner-breathe 6.4s ease-in-out infinite;
+}
+
+.cloud-corners span:nth-child(2) {
+  animation-delay: -1.6s;
+}
+
+.cloud-corners span:nth-child(3) {
+  animation-delay: -3.2s;
+}
+
+.cloud-corners span:nth-child(4) {
+  animation-delay: -4.8s;
+}
+
+@keyframes corner-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Hovering a note swaps this label, so the whole focus block is a fixed box:
+   a long title steps down in size (src/cloudLabel.ts) and is clamped to two
+   lines instead of growing the box and shrinking the sphere above it. */
+.cloud-focus {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  row-gap: 7px;
+  width: 100%;
+  /* Two title lines at the largest size, a gap, and two caption lines. */
+  height: calc(var(--cloud-title-max) * 2.3 + 35px);
+  margin-top: 12px;
+}
+
+.cloud-title {
+  max-width: 100%;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: min(var(--cloud-title-max), var(--cloud-title-fit, var(--cloud-title-max)));
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: var(--cloud-title-tracking);
+  text-indent: var(--cloud-title-indent);
+  text-align: center;
+  color: var(--text);
+  text-transform: uppercase;
+  text-shadow: 0 0 28px rgb(var(--accent-rgb) / 0.24);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  /* An unbroken slug still has to wrap inside the slot, not run past it. */
+  overflow-wrap: anywhere;
+}
+
+.cloud-caption {
+  max-width: 100%;
+  margin: 0;
+  font-size: 9.5px;
+  line-height: 1.45;
+  color: var(--muted-dim);
+  text-align: center;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* One reserved button row: the sphere is a flex sibling, so a button that only
+   appears on selection would otherwise steal height from the frame and shrink
+   it. The row stays 22 px tall whether it holds nothing, Open, Motion, or both. */
+.cloud-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: none;
+  width: 100%;
+  height: 22px;
+  margin-top: 10px;
+}
+
+/* Escape hatch when the sphere is stilled by the system setting. */
+.cloud-motion {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 22px;
+  padding: 0 12px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  background: none;
+  border: 1px dashed rgb(var(--accent-rgb) / 0.45);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.cloud-motion:hover,
+.cloud-motion:focus-visible {
+  border-style: solid;
+  background: rgb(var(--accent-rgb) / 0.08);
+}
+
+/* The focus ring and its node breathe every frame, so they opt out of the
+   geometry transition that smooths hover lifts. */
+.cloud-svg circle.cloud-pulse {
+  pointer-events: none;
+  transition: none;
+}
+
+/* Appears only while a cluster is focused: the explicit way to open it. */
+.cloud-open {
+  display: inline-block;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 22px;
+  /* Centres the 9 px label in the 20 px content box while leaving text-overflow
+     on the button itself; a flex label would clip without an ellipsis. */
+  line-height: 20px;
+  padding: 0 14px;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  background: rgb(var(--accent-rgb) / 0.08);
+  border: 1px solid rgb(var(--accent-rgb) / 0.45);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.cloud-open:hover,
+.cloud-open:focus-visible {
+  background: rgb(var(--accent-rgb) / 0.16);
+  border-color: var(--accent);
+}
+
+/* Core state readout: Idle / Scanning / Reading / Error, matching the
+   reference's pill row under the reactor. */
+.cloud-states {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.pill {
+  padding: 3px 10px;
+  font-size: 9px;
+  color: var(--muted-dim);
+  background: rgba(255, 255, 255, 0.012);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+}
+
+.pill.is-active {
+  color: var(--accent-bright);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  box-shadow: 0 0 16px rgb(var(--accent-rgb) / 0.18);
+}
+
+.cloud-legend {
+  display: flex;
+  gap: 16px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  font-size: 9.5px;
+  color: var(--muted);
+}
+
+.cloud-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* ---------- actions ---------- */
+
+/* Hairline rows with a trailing arrow, like the reference's skill list: the
+   rail is a readout, so the actions should read as text, not as cards. */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 34px;
+  padding: 8px 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  line-height: 1.3;
+  letter-spacing: 0.13em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.tile:hover:not(:disabled) {
+  color: var(--accent-bright);
+  border-bottom-color: rgb(var(--accent-rgb) / 0.45);
+}
+
+.tile:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tile:disabled {
+  color: var(--muted-dim);
+  border-bottom-style: dashed;
+  cursor: not-allowed;
+}
+
+.tile-label {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+}
+
+.tile-icon {
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.tile-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--muted-dim);
+}
+
+/* The live count on Today's captures / Review queue. A zero stays quiet; a
+   number worth opening is the only thing in the rail that glows. */
+.tile-count {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--muted-dim);
+}
+
+.tile-count.is-active {
+  color: var(--accent-bright);
+}
+
+.tiles .tile:last-child {
+  grid-column: 1 / -1;
+}
+
+.rail-hint {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+  line-height: 1.6;
+}
+
+.rail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.action {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 12px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text);
+  background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 140ms ease, box-shadow 140ms ease, color 140ms ease,
+    transform 140ms ease;
+}
+
+.action:hover:not(:disabled) {
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  box-shadow: var(--glow-line);
+  color: var(--accent-bright);
+  transform: translateY(-1px);
+}
+
+/* One pass of light across a vault action on hover: the only motion these
+   buttons have, and it stops at the edge instead of looping. */
+.action::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.07) 50%, transparent 70%);
+  transform: translateX(-130%);
+  transition: transform 620ms ease;
+  pointer-events: none;
+}
+
+.action:hover:not(:disabled)::after {
+  transform: translateX(130%);
+}
+
+.action:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.action:disabled {
+  color: var(--muted-dim);
+  cursor: not-allowed;
+  background: var(--bg-soft);
+}
+
+.action-primary {
+  border-color: rgb(var(--accent-rgb) / 0.35);
+  color: var(--accent-bright);
+  background: linear-gradient(180deg, rgb(var(--accent-rgb) / 0.1), rgb(var(--accent-rgb) / 0.02));
+}
+
+.action-hint {
+  font-size: 9px;
+  color: var(--muted-dim);
+  letter-spacing: 0.1em;
+}
+
+.action-primary .action-hint {
+  color: var(--accent-dim);
+}
+
+/* ---------- footer ---------- */
+
+/* A HUD status bar, not a footer: one hairline, tiny caps, and the version at
+   the far right, exactly where the eye stops after the rails. */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 9px 2px 3px;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.footer-spacer {
+  flex: 1;
+}
+
+.footer-mono {
+  color: var(--accent-dim);
+}
+
+/* ---------- motion ---------- */
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* The core's own drift lives in NodeCloud's animation loop, which checks this
+   media query and paints a single static frame instead. */
+@media (prefers-reduced-motion: reduce) {
+  .status-dot,
+  .action,
+  .mode-pill,
+  .tile {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ---------- fitted HUD (desktop / F11) ---------- */
+
+/* Left open on a 1080p monitor the shell should occupy the screen exactly: no
+   page scroll, no scrollbar, nothing clipped. The gate is the height at which
+   the compacted rails below actually clear the viewport (1080p full screen sits
+   comfortably inside it); anything shorter keeps the ordinary scrolling page
+   rather than hiding content behind an overflow. */
+@media (min-width: 1280px) and (min-height: 1000px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    overflow: hidden;
+  }
+
+  .app {
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+    padding: 14px 24px 12px;
+    gap: 12px;
+  }
+
+  .topbar {
+    padding-bottom: 8px;
+  }
+
+  .grid,
+  .rail,
+  .cloud,
+  .cloud-frame {
+    min-height: 0;
+  }
+
+  .rail {
+    gap: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Tighter metric rhythm: four rows, the meter and the index trail have to
+     clear 1080p without the rail falling back to its own scrollbar. */
+  .metric {
+    padding: 9px 0 10px;
+  }
+
+  .metric-value {
+    margin-top: 6px;
+    font-size: 27px;
+  }
+
+  .metric-caption {
+    margin-top: 4px;
+  }
+
+  .metric .sparkline {
+    margin-top: 6px;
+  }
+
+  .meter {
+    padding: 11px 14px 10px;
+  }
+
+  .meter-value {
+    margin-top: 7px;
+  }
+
+  .meter-bar {
+    margin-top: 9px;
+  }
+
+  .trail-row {
+    padding: 7px 0;
+  }
+
+  /* Slack on a tall screen collects above the trail, which then sits flush
+     with the footer instead of leaving a dead strip under it. */
+  .rail-head-sub {
+    margin-top: auto;
+  }
+}
+
+/* Wide display: give the rails the extra room and let the core breathe. */
+@media (min-width: 1600px) and (min-height: 800px) {
+  .grid {
+    grid-template-columns: 296px minmax(0, 1fr) 286px;
+    gap: 26px;
+  }
+}
+
+/* 1080p tier. The compact rhythm above is sized to fit a short window, which
+   leaves a sliver of air on a full-screen monitor; spend it on legibility and
+   on spreading the rails instead of leaving a dead strip at the bottom. Daily
+   recall anchors the top of the right rail and the vault actions anchor its
+   bottom, mirroring the vitals/index-trail split on the left. */
+@media (min-width: 1600px) and (min-height: 1055px) {
+  .rail {
+    gap: 12px;
+  }
+
+  .metric {
+    padding: 11px 0 12px;
+  }
+
+  .metric-value {
+    font-size: 30px;
+  }
+
+  .metric-caption {
+    font-size: 11.5px;
+  }
+
+  .metric .sparkline {
+    height: 44px;
+    margin-top: 8px;
+  }
+
+  .meter {
+    padding: 13px 14px 12px;
+  }
+
+  .meter-value {
+    font-size: 26px;
+  }
+
+  .meter-bar {
+    height: 16px;
+  }
+
+  .trail-row {
+    padding: 9px 0;
+  }
+
+  .trail-title {
+    font-size: 13px;
+  }
+
+  .clock-time {
+    font-size: 34px;
+  }
+
+  /* The right rail carries two blocks against a rail as tall as the vault
+     vitals, so let the skill tiles take the slack: they grow into big,
+     easy-to-hit buttons and the vault actions stay pinned to the bottom. */
+  .rail-right {
+    justify-content: flex-start;
+  }
+
+  .rail-group {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .tiles {
+    flex: 1;
+    min-height: 0;
+    max-height: 430px;
+    gap: 10px;
+  }
+
+  .tiles .tile {
+    align-items: center;
+    padding: 14px;
+    font-size: 14px;
+  }
+
+  .tile-badge,
+  .tile-icon {
+    font-size: 10px;
+  }
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: auto;
+  }
+  .rail-right {
+    grid-column: 1 / -1;
+  }
+  .rail-right .rail-head {
+    width: 100%;
+  }
+  .tiles {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  .rail-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 0;
+  }
+  .action {
+    flex: 1 1 200px;
+    width: auto;
+  }
+  .rail-hint {
+    width: 100%;
+  }
+}
+
+@media (max-width: 860px) {
+  .app {
+    padding: 14px;
+  }
+  .topbar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .brand {
+    min-width: 0;
+  }
+  .clock {
+    margin-left: auto;
+  }
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    gap: 16px;
+    /* Without this the auto rows stretch and the cloud floats in dead space. */
+    align-content: start;
+  }
+  /* Vitals pair up, while the meter and trail keep the full width. */
+  .rail-left {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 0 20px;
+  }
+  .rail-left .rail-head,
+  .rail-left .meter,
+  .rail-left .trail,
+  .rail-left .trail-empty {
+    grid-column: 1 / -1;
+  }
+  .cloud-frame {
+    flex: none;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    min-height: 0;
+  }
+  .cloud {
+    --cloud-title-max: 22px;
+    --cloud-title-tracking: 0.22em;
+  }
+
+  .mode-switch {
+    order: 3;
+    margin: 0;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ---------- settings ---------- */
+
+.icon-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--muted);
+  background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.icon-button:hover {
+  color: var(--accent-bright);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  box-shadow: var(--glow-line);
+}
+
+.icon-button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The session lock: same square as the gear beside it, rendered only when a
+   token installs a session. It anchors its own failure message. */
+.lock-wrap {
+  position: relative;
+  flex: none;
+  display: grid;
+}
+
+.lock-button:disabled {
+  cursor: progress;
+  opacity: 0.55;
+}
+
+/* A lock that failed is not a lock: the cookie is still in the browser, so the
+   message has to be visible rather than folded into a tooltip. */
+.lock-error {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: 240px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--danger);
+  background: var(--panel-raised);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.settings-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px;
+  background: rgba(4, 4, 6, 0.62);
+  backdrop-filter: blur(3px);
+  animation: scrim-in 160ms ease-out;
+}
+
+.settings-panel {
+  align-self: flex-start;
+  width: min(352px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 18px;
+  background: linear-gradient(180deg, var(--panel-raised), var(--bg-soft) 70%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65), var(--glow-soft);
+  animation: panel-in 200ms cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+
+.settings-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.settings-title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+}
+
+.settings-sub {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.settings-close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings-close:hover {
+  color: var(--accent-bright);
+  border-color: rgb(var(--accent-rgb) / 0.4);
+}
+
+.settings-close:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings-section {
+  margin-top: 18px;
+}
+
+.settings-label {
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.theme-option:hover {
+  border-color: rgb(var(--accent-rgb) / 0.35);
+  transform: translateY(-1px);
+}
+
+.theme-option:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.theme-option:last-child {
+  grid-column: 1 / -1;
+}
+
+.theme-option.is-selected {
+  border-color: rgb(var(--accent-rgb) / 0.65);
+  box-shadow: var(--glow-line);
+}
+
+.theme-swatch {
+  display: flex;
+  width: 100%;
+  height: 20px;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  /* Unset is dark by design; the ring keeps its band readable on the panel. */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.theme-swatch span {
+  flex: 1;
+}
+
+/* A panel-coloured seam marks where the chrome trio ends and the two cloud
+   colours (untagged node, spark field) begin. */
+.theme-swatch span.is-vault {
+  border-left: 2px solid var(--panel);
+}
+
+.theme-name {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.theme-check {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+
+/* Local preferences (clock format, motion): choices with the consequence spelled
+   out next to the name. */
+.choice-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.choice-option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.choice-option:hover {
+  border-color: rgb(var(--accent-rgb) / 0.35);
+}
+
+.choice-option:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.choice-option.is-selected {
+  border-color: rgb(var(--accent-rgb) / 0.65);
+  box-shadow: var(--glow-line);
+}
+
+/* Options whose hint is a sentence: stack it under the label instead of letting
+   `white-space: nowrap` widen the panel. */
+.choice-grid-stack .choice-option {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.choice-grid-stack .choice-hint {
+  white-space: normal;
+  text-align: left;
+  line-height: 1.45;
+}
+
+.choice-name {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.choice-option.is-selected .choice-name {
+  color: var(--accent-bright);
+}
+
+.choice-hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted-dim);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Clock settings: zone picker + hour cycle. */
+.clock-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.clock-field-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.clock-select {
+  max-width: 62%;
+  padding: 7px 9px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.clock-select:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.clock-format {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Inline explanation under a settings heading: what the choice does right now. */
+.settings-caption {
+  margin: 8px 0 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--muted-dim);
+}
+
+.settings-label + .settings-caption {
+  margin-top: 4px;
+}
+
+.settings-caption + .theme-grid {
+  margin-top: 10px;
+}
+
+.settings-note {
+  margin: 18px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-scrim,
+  .settings-panel {
+    animation: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .settings-scrim {
+    padding: 10px;
+  }
+  .settings-panel {
+    width: 100%;
+  }
+}
+
+/* Note reader ------------------------------------------------------------ */
+
+.reader-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: flex-end;
+  padding: 18px;
+  background: rgba(4, 4, 6, 0.68);
+  backdrop-filter: blur(3px);
+  animation: scrim-in 160ms ease-out;
+}
+
+.reader-panel {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  width: min(760px, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--panel-raised), var(--bg-soft) 60%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7), var(--glow-soft);
+  animation: panel-in 200ms cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+
+.reader-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.reader-heading {
+  min-width: 0;
+}
+
+.reader-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.area-tag {
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  letter-spacing: 0.1em;
+}
+
+.area-tag.area-career {
+  color: var(--node-career);
+}
+
+.area-tag.area-life {
+  color: var(--node-life);
+}
+
+.area-tag.area-ideas {
+  color: var(--node-ideas);
+}
+
+.reader-origin {
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.reader-title {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.reader-path {
+  display: block;
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.reader-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  margin: 0;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.reader-meta dt {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.reader-meta dd {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* The zone the note was written in, next to the stamp converted out of it. */
+.reader-meta-zone {
+  display: inline-block;
+  margin-left: 7px;
+  padding-left: 7px;
+  border-left: 1px solid var(--line-soft);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.reader-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.reader-state {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.reader-state-error {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+}
+
+.reader-retry {
+  margin-top: 12px;
+  padding: 7px 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.reader-retry:hover {
+  border-color: var(--accent-dim);
+}
+
+.reader-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 11px 20px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.reader-stamp {
+  font-family: var(--mono);
+  color: var(--muted-dim);
+}
+
+/* Editing controls. Writes are off unless the API says otherwise, so these only
+   appear on an install that opted in. */
+
+.reader-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.reader-action {
+  padding: 6px 11px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.reader-action:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent-dim);
+}
+
+.reader-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.reader-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.reader-action-primary {
+  color: #08090b;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.reader-action-primary:hover:not(:disabled) {
+  color: #08090b;
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+}
+
+.reader-action-danger {
+  color: #ffb9ac;
+  border-color: rgb(255 122 99 / 0.45);
+}
+
+.reader-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reader-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 340px;
+}
+
+.reader-edit-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.reader-edit-path {
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.reader-editor {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 300px;
+  padding: 14px 16px;
+  resize: vertical;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text);
+  background: rgb(0 0 0 / 0.28);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  outline: none;
+}
+
+.reader-editor:focus {
+  border-color: var(--accent-dim);
+}
+
+.reader-action-error {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #ffc4b8;
+  background: rgb(255 90 70 / 0.06);
+  border: 1px solid rgb(255 122 99 / 0.4);
+  border-radius: 8px;
+}
+
+.reader-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.reader-edit-state {
+  margin-right: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+/* New note: a path plus the first draft, in the same panel as the reader. */
+
+.composer-panel {
+  width: min(680px, 100%);
+}
+
+.composer-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  padding: 18px 20px 20px;
+}
+
+.composer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.composer-field-grow {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.composer-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.composer-input {
+  padding: 9px 11px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+  background: rgb(0 0 0 / 0.28);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+}
+
+.composer-input:focus {
+  border-color: var(--accent-dim);
+}
+
+.composer-editor {
+  min-height: 220px;
+  resize: none;
+}
+
+.composer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Connections: the note's edges in the graph, out and in. */
+
+.reader-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.reader-link-col {
+  min-width: 0;
+}
+
+.reader-links-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.reader-links-count {
+  padding: 0 6px;
+  font-size: 9px;
+  color: var(--accent);
+  border: 1px solid rgb(var(--accent-rgb) / 0.3);
+  border-radius: 999px;
+}
+
+.reader-link-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reader-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 8px;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.reader-link:hover {
+  color: var(--accent-bright);
+  background: rgb(var(--accent-rgb) / 0.06);
+  border-left-color: var(--accent);
+}
+
+.reader-link:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.reader-link-title {
+  font-size: 12.5px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-link-path {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A `[[target]]` with no note behind it: shown as a chip, not openable, so a
+   note full of typos does not bury the links that do work. */
+.reader-link-missing {
+  margin-top: 10px;
+}
+
+.reader-link-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reader-link-chip {
+  padding: 2px 7px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted-dim);
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+}
+
+.reader-links-empty {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted-dim);
+}
+
+@media (max-width: 620px) {
+  .reader-links {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Rendered markdown ------------------------------------------------------ */
+
+.prose {
+  font-size: 14px;
+  line-height: 1.72;
+  color: var(--text);
+}
+
+.prose > * + * {
+  margin-top: 13px;
+}
+
+.md-heading {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  color: var(--accent-bright);
+}
+
+/* `[[Note#Heading]]` lands here: keep it clear of the scroll box's top edge and
+   mark it for a moment, because a jump with no mark leaves the eye hunting. */
+.md-heading[data-heading] {
+  scroll-margin-top: 14px;
+}
+
+.md-heading.is-target {
+  border-radius: 4px;
+  animation: heading-flash 2.2s ease-out;
+}
+
+@keyframes heading-flash {
+  0% {
+    background: rgb(var(--accent-rgb) / 0.38);
+    color: var(--text);
+    box-shadow: inset 3px 0 0 var(--accent-bright), 0 0 0 6px rgb(var(--accent-rgb) / 0.14);
+  }
+  55% {
+    background: rgb(var(--accent-rgb) / 0.12);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+}
+
+/* Reduced motion still gets the answer: a steady mark instead of a fade. */
+@media (prefers-reduced-motion: reduce) {
+  .md-heading.is-target {
+    animation: none;
+    background: rgb(var(--accent-rgb) / 0.16);
+    box-shadow: inset 3px 0 0 var(--accent-bright);
+  }
+}
+
+.md-para {
+  margin: 0;
+}
+
+.md-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.md-list li + li {
+  margin-top: 5px;
+}
+
+.md-code {
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--accent-bright);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+.md-pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.md-quote {
+  margin: 0;
+  padding: 8px 0 8px 14px;
+  color: var(--muted);
+  border-left: 2px solid var(--accent-dim);
+}
+
+.md-rule {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.md-link {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.md-wikilink {
+  padding: 0;
+  font: inherit;
+  color: var(--accent-bright);
+  background: none;
+  border: 0;
+  border-bottom: 1px dashed currentColor;
+  cursor: pointer;
+}
+
+.md-wikilink.is-unresolved {
+  color: var(--muted-dim);
+  border-bottom-style: dotted;
+  cursor: help;
+}
+
+.md-wikilink:focus-visible,
+.reader-retry:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-scrim,
+  .reader-panel {
+    animation: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .reader-scrim {
+    padding: 10px;
+  }
+  .reader-panel {
+    width: 100%;
+  }
+}
+
+/* Search bar ------------------------------------------------------------- */
+
+.search {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* A HUD readout, not a widget: the center column belongs to the core, so the
+   search field is a quiet hairline row instead of a full-width pill. */
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px 5px 10px;
+  background: rgb(255 255 255 / 0.012);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.search-field:focus-within {
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  box-shadow: var(--glow-line);
+}
+
+.search-field.is-listening {
+  border-color: rgb(var(--accent-rgb) / 0.6);
+  box-shadow: 0 0 0 1px rgb(var(--accent-rgb) / 0.25), 0 0 22px rgb(var(--accent-rgb) / 0.18);
+}
+
+.search-icon {
+  font-size: 15px;
+  line-height: 1;
+  color: var(--accent-dim);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--muted-dim);
+}
+
+.search-input {
+  caret-color: var(--accent-bright);
+}
+
+/* Selecting text paints in the active accent rather than the OS blue: the one
+   place a theme reaches a browser-owned surface. */
+::selection {
+  background: rgb(var(--accent-rgb) / 0.32);
+  color: var(--text);
+}
+
+.search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-clear {
+  padding: 2px 6px;
+  font-size: 12px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.search-clear:hover {
+  color: var(--text);
+}
+
+.voice-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.voice-button:hover:not(:disabled) {
+  color: var(--accent-bright);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+}
+
+.voice-button:disabled {
+  color: var(--muted-dim);
+  cursor: not-allowed;
+}
+
+.voice-button.is-listening {
+  color: var(--accent-bright);
+  border-color: rgb(var(--accent-rgb) / 0.5);
+}
+
+.voice-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted-dim);
+}
+
+.voice-button.is-listening .voice-dot {
+  background: var(--accent);
+  box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.7);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.search-meta {
+  margin: 0 0 0 13px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.search-results {
+  position: absolute;
+  top: calc(100% - 2px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  padding: 6px;
+  background: linear-gradient(180deg, var(--panel-raised), var(--bg-soft));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.7), var(--glow-soft);
+}
+
+.search-empty {
+  margin: 0;
+  padding: 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.search-hit {
+  display: flex;
+  flex-direction: column;
+  /* A button's UA style would shrink every child to its content; stretching
+     lets the head and foot use their `space-between` / `margin-left: auto`
+     so the stamp (and its zone) sits at the right edge of the row. */
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.search-hit.is-active {
+  background: rgb(var(--accent-rgb) / 0.08);
+}
+
+.search-hit:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.hit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hit-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* The stamp and, under it, the zone the note was written in. Stacked rather
+   than appended: an IANA name beside a full converted stamp would push the
+   title out of the row. */
+.hit-when {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.hit-date {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--muted-dim);
+}
+
+.hit-zone {
+  max-width: 160px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hit-snippet {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.hit-mark {
+  padding: 0 1px;
+  color: var(--accent-bright);
+  background: rgb(var(--accent-rgb) / 0.16);
+  border-radius: 2px;
+}
+
+.hit-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.hit-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.hit-badge.match-title {
+  color: var(--accent-bright);
+  border-color: rgb(var(--accent-rgb) / 0.4);
+}
+
+.hit-badge.match-tag {
+  color: var(--node-ideas);
+}
+
+.hit-tag {
+  color: var(--accent-dim);
+}
+
+.hit-path {
+  margin-left: auto;
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+
+/* Daily recall card ------------------------------------------------------ */
+
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recall {
+  padding: 13px 14px 12px;
+  background: linear-gradient(165deg, var(--panel-raised), var(--panel) 65%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--glow-soft);
+}
+
+.recall-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.recall-title {
+  margin: 9px 0 0;
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.recall-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.recall-tag {
+  padding: 1px 7px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  border: 1px solid rgb(var(--accent-rgb) / 0.28);
+  border-radius: 999px;
+}
+
+.recall-tag.is-muted {
+  color: var(--muted-dim);
+  border-color: var(--line);
+}
+
+.recall-state,
+.recall-hint {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.recall-state-error {
+  color: var(--danger);
+}
+
+.recall-body {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* Revealing the note fades the prose up instead of snapping it into the card. */
+@media (prefers-reduced-motion: no-preference) {
+  .recall-body {
+    animation: recall-reveal 260ms ease-out;
+  }
+}
+
+@keyframes recall-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+.recall-stamp {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-dim);
+}
+
+/* The reader's divider at the card's smaller size. The line wraps as a whole,
+   so the zone keeps the abbreviation company instead of leaving it alone on a
+   line. IANA names are case-sensitive to the eye, so the stamp's uppercase
+   transform is undone. */
+.recall-zone {
+  display: inline-block;
+  margin-left: 7px;
+  padding-left: 7px;
+  border-left: 1px solid var(--line-soft);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--muted);
+}
+
+.prose-tight {
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.recall-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Real graph edges ------------------------------------------------------- */
+
+.cloud-edge {
+  stroke-width: 0.5;
+}
+
+.cloud-edge.is-wikilink {
+  stroke: var(--accent-dim);
+}
+
+.cloud-edge.is-tag {
+  stroke: var(--node-unset);
+  stroke-dasharray: 2 3;
+}
+
+@media (max-width: 1024px) {
+  .search-results {
+    max-height: 52vh;
+  }
+}
+
+/* ---------- interaction polish ---------- */
+
+/* Cards answer the pointer with a one-pixel lift and a warmer edge; rows with a
+   wash of accent and a nudged arrow. Transform and opacity only, so the layout
+   never moves while it reacts. */
+.recall,
+.dep-health,
+.link-health {
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.recall:hover,
+.dep-health:hover,
+.link-health:hover {
+  transform: translateY(-1px);
+}
+
+.recall:hover {
+  border-color: rgb(var(--accent-rgb) / 0.35);
+  box-shadow: var(--glow-line);
+}
+
+/* The skill tiles are hairline rows, not cards: a wash and a single pass of
+   light read as "live" without turning the rail into a stack of buttons. */
+.tile {
+  position: relative;
+  overflow: hidden;
+  transition: color 140ms ease, border-color 140ms ease, background 200ms ease;
+}
+
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.06) 50%, transparent 70%);
+  transform: translateX(-140%);
+  transition: transform 620ms ease;
+  pointer-events: none;
+}
+
+.tile:hover:not(:disabled) {
+  background: linear-gradient(90deg, rgb(var(--accent-rgb) / 0.06), transparent 72%);
+}
+
+.tile:hover:not(:disabled)::after {
+  transform: translateX(140%);
+}
+
+.tile-icon {
+  transition: transform 180ms ease;
+}
+
+.tile:hover:not(:disabled) .tile-icon {
+  transform: translateX(3px);
+}
+
+.trail-row {
+  transition: background 160ms ease;
+}
+
+.trail-row:hover,
+.trail-row:focus-visible {
+  background: linear-gradient(90deg, rgb(var(--accent-rgb) / 0.05), transparent 88%);
+}
+
+.trail-arrow {
+  transition: transform 160ms ease;
+}
+
+.trail-row:hover .trail-arrow,
+.trail-row:focus-visible .trail-arrow {
+  transform: translateX(3px);
+}
+
+.search-hit {
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+/* Hits arrive in a short cascade (delay set inline from the index) so a new
+   query feels like it resolved rather than swapped. */
+@media (prefers-reduced-motion: no-preference) {
+  .search-hit {
+    animation: hit-in 200ms ease-out backwards;
+  }
+}
+
+@keyframes hit-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.search-hit:hover:not(.is-active) {
+  background: rgb(var(--accent-rgb) / 0.05);
+  transform: translateX(2px);
+}
+
+.reader-link {
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease,
+    transform 140ms ease;
+}
+
+.reader-link:hover {
+  transform: translateX(2px);
+}
+
+.link-note {
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.link-note:hover,
+.link-note:focus-visible {
+  transform: translateX(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recall,
+  .dep-health,
+  .link-health,
+  .tile,
+  .tile-icon,
+  .trail-row,
+  .trail-arrow,
+  .search-hit,
+  .reader-link,
+  .link-note {
+    transition: none;
+  }
+
+  .tile::after {
+    display: none;
+  }
+
+  .recall:hover,
+  .dep-health:hover,
+  .link-health:hover,
+  .tile:hover:not(:disabled) .tile-icon,
+  .trail-row:hover .trail-arrow,
+  .trail-row:focus-visible .trail-arrow,
+  .search-hit:hover:not(.is-active),
+  .reader-link:hover,
+  .link-note:hover,
+  .link-note:focus-visible {
+    transform: none;
+  }
+}
+
+/* Every animation above is decorative. The JS core already stops when motion is
+   off; this keeps the CSS layer honest for people who asked the OS for less. */
+@media (prefers-reduced-motion: reduce) {
+  .brand-name,
+  .brand-mark,
+  .cloud-corners span {
+    animation: none;
+  }
+
+  .action::after {
+    display: none;
+  }
+}
+
+/* ---------- access gate ---------- */
+
+/* The unlock screen is the whole page: the dashboard has not mounted, so there
+   is no header or cloud behind it — just the card, centred on the same deep
+   space the app uses. */
+.access-gate {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.access-gate-card {
+  width: min(420px, 100%);
+  padding: 28px 26px 24px;
+  background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--glow-soft), inset 0 1px 0 rgb(255 255 255 / 0.03);
+}
+
+.access-gate-eyebrow {
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.access-gate-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.access-gate-copy {
+  margin: 10px 0 18px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.access-gate-copy code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent-bright);
+}
+
+.access-gate-form {
+  display: grid;
+  gap: 8px;
+}
+
+.access-gate-label {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.access-gate-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.access-gate-input:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.access-gate-input:disabled {
+  opacity: 0.7;
+}
+
+.access-gate-submit {
+  margin-top: 2px;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.access-gate-submit:hover:not(:disabled) {
+  background: var(--accent-bright);
+}
+
+.access-gate-submit:disabled {
+  cursor: progress;
+  opacity: 0.65;
+}
+
+.access-gate-submit:focus-visible {
+  outline: 1px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+.access-gate-error {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.access-gate-hint,
+.access-gate-wait {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--muted-dim);
+}
+
+/* ---------- quick-action sheets ---------- */
+
+/* Today's captures and the Review queue share one dialog: a scrim below the note
+   reader, a scrolling list of whole-row buttons, and a footer that says where the
+   dates come from. */
+.action-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(4, 4, 6, 0.72);
+  backdrop-filter: blur(4px);
+  animation: scrim-in 160ms ease-out;
+}
+
+.action-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 100%);
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--panel-raised), var(--bg-soft) 75%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), var(--glow-soft);
+  animation: panel-in 200ms cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+
+.action-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.action-sheet-heading {
+  min-width: 0;
+}
+
+.action-sheet-kicker {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.action-sheet-title {
+  margin: 4px 0 0;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+}
+
+.action-sheet-meta {
+  margin: 5px 0 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.action-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 20px 18px;
+}
+
+.action-sheet-note {
+  margin: 18px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.action-sheet-note.is-error {
+  color: var(--danger);
+}
+
+.action-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 14px;
+  width: 100%;
+  padding: 9px 10px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.action-row:hover,
+.action-row:focus-visible {
+  background: rgb(var(--accent-rgb) / 0.06);
+  border-color: rgb(var(--accent-rgb) / 0.28);
+}
+
+.action-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.action-row-title {
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-row-path {
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-row-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.action-row-stamp {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.action-row-status {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.action-row-status.is-overdue {
+  color: var(--danger);
+}
+
+.action-row-status.is-due-today {
+  color: var(--accent-bright);
+}
+
+.action-row-date {
+  color: var(--muted-dim);
+  white-space: nowrap;
+}
+
+.action-sheet-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 20px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--muted-dim);
+  border-top: 1px solid var(--line-soft);
+}
+
+.action-sheet-mono {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Trash ---------------------------------------------------------------- */
+
+/* The same sheet as the captures and review lists, except the row is
+   information and Restore is the one decision on it. */
+.trash-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trash-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 2px 14px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--line-soft);
+  border-radius: 6px;
+}
+
+.trash-row:last-child {
+  border-bottom-color: transparent;
+}
+
+.trash-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.trash-row-title {
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-row-path {
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-row-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.trash-row-stamp {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.trash-row-size {
+  color: var(--muted-dim);
+  white-space: nowrap;
+}
+
+.trash-restore {
+  flex: none;
+  padding: 5px 10px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  background: rgb(var(--accent-rgb) / 0.08);
+  border: 1px solid rgb(var(--accent-rgb) / 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.trash-restore:hover:not(:disabled),
+.trash-restore:focus-visible:not(:disabled) {
+  background: rgb(var(--accent-rgb) / 0.16);
+  border-color: rgb(var(--accent-rgb) / 0.6);
+}
+
+.trash-restore:disabled {
+  color: var(--muted-dim);
+  background: transparent;
+  border-color: var(--line);
+  cursor: not-allowed;
+}
+
+/* A refused restore belongs to its row: the note is still in the trash. */
+.trash-row-error {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--danger);
+}
+
+@media (max-width: 620px) {
+  .trash-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .action-sheet-scrim {
+    padding: 10px;
+  }
+
+  .action-sheet-head,
+  .action-sheet-body,
+  .action-sheet-foot {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .action-row-meta {
+    align-items: flex-start;
+  }
+}
+
+/* Command palette -------------------------------------------------------- */
+
+/* The header's discoverable half of the shortcut: a small key cap beside the
+   settings gear, not a second search field competing with the real one. */
+.palette-trigger {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 40px;
+  height: 34px;
+  padding: 0 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.palette-trigger:hover {
+  color: var(--accent-bright);
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  box-shadow: var(--glow-line);
+}
+
+.palette-trigger:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Above the reader (60) and the mode notice (65): it is a launcher, and the
+   shortcut refuses to stack it on another dialog anyway. */
+.palette-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 66;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(28px, 11vh, 120px) 18px 24px;
+  background: rgba(4, 4, 6, 0.72);
+  backdrop-filter: blur(4px);
+  animation: scrim-in 160ms ease-out;
+}
+
+.palette-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 100%);
+  max-height: min(70vh, 540px);
+  min-height: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--panel-raised), var(--bg-soft) 78%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.72), var(--glow-soft);
+  animation: palette-in 180ms cubic-bezier(0.22, 0.8, 0.3, 1);
+}
+
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.995);
+  }
+}
+
+.palette-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.palette-icon {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.palette-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.palette-input::placeholder {
+  color: var(--muted-dim);
+}
+
+.palette-status {
+  margin: 0;
+  padding: 8px 14px 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--muted-dim);
+}
+
+.palette-status.is-error {
+  color: var(--danger);
+}
+
+.palette-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.palette-group {
+  margin: 8px 8px 4px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.palette-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.palette-row.is-active {
+  background: rgb(var(--accent-rgb) / 0.08);
+  border-color: rgb(var(--accent-rgb) / 0.24);
+}
+
+.palette-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.palette-row-label {
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-row-detail {
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-row-kind {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-dim);
+}
+
+.palette-row.is-active .palette-row-kind {
+  color: var(--accent);
+}
+
+.palette-empty {
+  margin: 0;
+  padding: 16px 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.palette-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--muted-dim);
+  border-top: 1px solid var(--line-soft);
+}
+
+.palette-foot kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  margin-right: 2px;
+  padding: 1px 4px;
+  font-family: inherit;
+  font-size: 8.5px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.palette-foot-mono {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .palette-scrim {
+    padding: 10px;
+  }
+
+  .palette-panel {
+    max-height: calc(100vh - 20px);
+  }
+
+  .palette-foot-mono {
+    display: none;
+  }
+}

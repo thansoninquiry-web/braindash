@@ -1,0 +1,26 @@
+# Editor defaults for this repository.
+#
+# `.gitattributes` decides what Git writes; this file asks editors to produce the
+# same bytes in the first place, so a file is already LF when it is saved rather
+# than converted on checkout. `npm run check:eol` fails the build if a tracked
+# text file is ever CRLF in the working tree, whichever of the two was ignored.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Markdown uses two trailing spaces for a hard line break, so they are content
+# there rather than something to strip on save.
+[*.md]
+trim_trailing_whitespace = false
+
+# Windows launchers are the one exception, matching the `eol=crlf` rules in
+# `.gitattributes`. None exist today; the section is here so adding one does not
+# need this file edited in the same commit.
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
