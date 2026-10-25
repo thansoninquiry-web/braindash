@@ -18,7 +18,10 @@
  * Usage: `npm run build && npm run perf:core`.
  * Tuning: `PERF_FRAME_BUDGET_MS` (default 14) is animation work per frame;
  * `PERF_MIN_FPS` (default 10) is only a liveness floor, because a headless
- * browser rasterises on the CPU; `PERF_SAMPLE_MS` (default 4000).
+ * browser rasterises on the CPU; `PERF_SAMPLE_MS` (default 4000). CI runs the
+ * same command with a 24 ms budget, because the shared runner measured 16.25 ms
+ * on the commit that measured 4.92 ms here — the higher line is still a real
+ * regression gate on that machine, and the local run keeps the stricter one.
  */
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";

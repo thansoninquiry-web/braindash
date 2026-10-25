@@ -1814,6 +1814,31 @@ irreversible or externally visible (commits, deploys, signups, vault writes).
 - **Not done: no remote, no push.** Creating the GitHub repository and pushing are
   externally visible, so they remain under approvals.
 
+## 2026-10-24 — the CI frame budget is calibrated for the machine it runs on
+
+- **Two red jobs on the first public run, both host assumptions.** The Ubuntu leg
+  failed a captured-zone case that asserted Tokyo's conversion of a note which
+  recorded no zone — true only when the host is New York, false on a UTC runner —
+  and the Windows leg's fault injector keyed files by their lexical path while the
+  reader reads through `fs.realpath`, which on a runner expands the temp folder's
+  8.3 name (`RUNNER~1`); the fault missed, the real file was read, and the test
+  that should have proved a refusal proved nothing. Fixed by deriving the expected
+  stamp from the formatter the row uses, and by keying faults on the canonical
+  file (`realpathSync.native` with the lexical path as fallback). The second one
+  was rehearsed: a deliberately re-cased vault path now produces `not_found`
+  where it used to read the file.
+- **The frame budget is per machine, and now says so.** The perf job measured
+  **16.25 ms/frame** against a 14 ms budget on the shared runner, for the same
+  bytes that measure **4.92 ms/frame with 49.6 fps** here — a 3.3× slower machine
+  with no GPU, failing on its class rather than on the code. CI now runs that one
+  step with `PERF_FRAME_BUDGET_MS=24`: above what the runner needs, less than half
+  of what a real regression (a doubled draw loop) would cost, and unchanged for a
+  local `npm run perf:core`, which keeps 14 ms. The alternative — letting the
+  step fail without failing the job — was rejected because a job that cannot fail
+  is not a gate; a single
+  shared number was rejected because it either fails the runner or stops
+  protecting the machine the dashboard is actually used on.
+
 ## Approvals needed
 
 - **Publish the fresh history.** `master` is one root commit on the noreply

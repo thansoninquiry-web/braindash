@@ -646,8 +646,9 @@ compiled server against a temporary
 **160-note** vault (the cloud's node cap), opens the built dashboard in headless
 Chrome at 1440×900, forces cloud motion on and samples Chrome's own
 `ScriptDuration`, `RecalcStyleDuration` and `LayoutDuration` counters for four
-seconds. It fails when that animation work exceeds **14 ms per frame** — of the
-16.7 ms a 60 Hz frame allows — or when the loop paints fewer than 10 fps, which
+seconds. It fails when that animation work exceeds its budget — **14 ms per
+frame**, of the 16.7 ms a 60 Hz frame allows, on a workstation and **24 ms** in
+CI — or when the loop paints fewer than 10 fps, which
 is a liveness floor rather than a target (a node's projected position must also
 change before and after the sample, so a stopped loop cannot look cheap). The
 budget deliberately excludes paint and rasterisation: a headless runner has no
@@ -657,7 +658,12 @@ the dashboard is used on does not do. `npm run perf:core` is the same check loca
 searched otherwise. `PERF_FRAME_BUDGET_MS`, `PERF_MIN_FPS` and `PERF_SAMPLE_MS`
 override the budget, floor and sample window. It runs on Ubuntu only, so the
 budget is a regression baseline for one rasteriser rather than a cross-platform
-FPS claim.
+FPS claim. The two budgets differ for a measured reason: the commit that first
+ran this job measured **4.92 ms/frame on a workstation** and **16.25 ms/frame on
+the shared runner**, so a single 14 ms line would have failed on the runner's
+class rather than on the code. CI therefore runs at 24 ms — enough for that
+machine, still less than half of what a real regression (a doubled draw loop)
+would cost — while a local `npm run perf:core` keeps the stricter 14 ms.
 
 To inspect an artifact by hand, unzip it over a checkout that has run `npm ci`
 and run `npm run start:built`: the zip holds both directories at their workspace
