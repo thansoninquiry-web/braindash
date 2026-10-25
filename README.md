@@ -10,6 +10,14 @@ it back.
 React + TypeScript + Vite  ·  Express (TypeScript)  ·  zero database
 ```
 
+![The core view: the vault's notes orbiting the core, with system vitals, daily recall, link health and the index trail](docs/images/dashboard.jpg)
+
+*The core view — every note in the vault, the vitals built from them, today's recall and the link-health card. Both screenshots come from a synthetic demo vault, never a real one.*
+
+![The note reader: rendered markdown, the captured stamp in its recorded zone, and links out beside backlinks](docs/images/reader.jpg)
+
+*The reader — rendered markdown with clickable `[[links]]`, the captured stamp converted to the zone the clock is set to, and the notes that link here or merely share a tag.*
+
 ## Working mode
 
 Whether an agent should interrupt you or just get on with it is recorded, not
